@@ -24,7 +24,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.json({
     name: "Security Toolkit API",
-    version: "2.0.0",
+    version: "2.1.0",
     endpoints: {
       generatePassword: "/generate-password",
       bulkGenerate: "/generate-bulk",
@@ -39,7 +39,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Generate Password (with rules)
+// Generate Password
 app.get('/generate-password', (req, res) => {
   const length = parseInt(req.query.length) || 12;
   const minUppercase = parseInt(req.query.minUppercase) || 1;
@@ -100,25 +100,8 @@ app.get('/generate-bulk', (req, res) => {
   res.json({ count, passwords });
 });
 
-// Strength checker
-
-  score = score - penalty;
-
-  // Normalize score
-  if (score < 0) score = 0;
-
-  let strength = 'very weak';
-
-  if (score >= 5) strength = 'very strong';
-  else if (score === 4) strength = 'strong';
-  else if (score === 3) strength = 'medium';
-  else if (score === 2) strength = 'weak';
-
-  res.json({
-    password,
-    score,
-    strength
-  });
+// Improved Strength Checker
+app.post('/check-strength', (req, res) => {
   const { password } = req.body;
 
   if (!password) {
@@ -127,18 +110,48 @@ app.get('/generate-bulk', (req, res) => {
 
   let score = 0;
 
-  if (password.length >= 8) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
+  // Length scoring (stricter)
+  if (password.length >= 10) score++;
+  if (password.length >= 14) score++;
 
-  const levels = ['weak', 'medium', 'strong', 'very strong'];
+  // Character variety
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
+
+  if (hasUpper) score++;
+  if (hasLower) score++;
+  if (hasNumber) score++;
+  if (hasSymbol) score++;
+
+  // Penalize common patterns HARD
+  const weakPatterns = ['123', 'password', 'qwerty', 'abc', 'test'];
+  let penalty = 0;
+
+  weakPatterns.forEach(pattern => {
+    if (password.toLowerCase().includes(pattern)) {
+      penalty += 2; // stronger penalty
+    }
+  });
+
+  score = score - penalty;
+
+  if (score < 0) score = 0;
+
+  let strength = 'very weak';
+
+  if (score >= 6) strength = 'very strong';
+  else if (score >= 4) strength = 'strong';
+  else if (score >= 3) strength = 'medium';
+  else if (score >= 2) strength = 'weak';
 
   res.json({
     password,
     score,
-    strength: levels[score - 1] || 'very weak'
+    strength
   });
+});
 
 // Start
 app.listen(PORT, () => {

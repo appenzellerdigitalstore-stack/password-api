@@ -101,7 +101,24 @@ app.get('/generate-bulk', (req, res) => {
 });
 
 // Strength checker
-app.post('/check-strength', (req, res) => {
+
+  score = score - penalty;
+
+  // Normalize score
+  if (score < 0) score = 0;
+
+  let strength = 'very weak';
+
+  if (score >= 5) strength = 'very strong';
+  else if (score === 4) strength = 'strong';
+  else if (score === 3) strength = 'medium';
+  else if (score === 2) strength = 'weak';
+
+  res.json({
+    password,
+    score,
+    strength
+  });
   const { password } = req.body;
 
   if (!password) {
@@ -122,7 +139,6 @@ app.post('/check-strength', (req, res) => {
     score,
     strength: levels[score - 1] || 'very weak'
   });
-});
 
 // Start
 app.listen(PORT, () => {

@@ -5,9 +5,9 @@ const PORT = process.env.PORT || 3000;
 
 const API_KEY = "my-secret-key";
 
-// Middleware
 app.use(express.json());
 
+// API Key Middleware
 app.use((req, res, next) => {
   if (req.path === '/' || req.path === '/health') return next();
 
@@ -20,16 +20,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// Root endpoint (important for product feel)
+// Root
 app.get('/', (req, res) => {
   res.json({
-    name: "Password Generator API",
-    version: "1.0.0",
+    name: "Security Toolkit API",
+    version: "2.0.0",
     endpoints: {
-      health: "/health",
-      generatePassword: "/generate-password?length=12"
-    },
-    auth: "Use x-api-key in headers"
+      generatePassword: "/generate-password",
+      bulkGenerate: "/generate-bulk",
+      checkStrength: "/check-strength",
+      health: "/health"
+    }
   });
 });
 
@@ -38,28 +39,88 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Password generator
+// Generate Password (with rules)
 app.get('/generate-password', (req, res) => {
   const length = parseInt(req.query.length) || 12;
+  const minUppercase = parseInt(req.query.minUppercase) || 1;
+  const minNumbers = parseInt(req.query.minNumbers) || 1;
 
   if (length < 4 || length > 100) {
     return res.status(400).json({ error: 'Length must be between 4 and 100' });
   }
 
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
+  const lower = 'abcdefghijklmnopqrstuvwxyz';
+  const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
+  const symbols = '!@#$%^&*()';
 
   let password = '';
-  for (let i = 0; i < length; i++) {
-    const randomIndex = Math.floor(Math.random() * charset.length);
-    password += charset[randomIndex];
+
+  for (let i = 0; i < minUppercase; i++) {
+    password += upper[Math.floor(Math.random() * upper.length)];
   }
 
-  res.json({
-    success: true,
-    data: {
-      password,
-      length
+  for (let i = 0; i < minNumbers; i++) {
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+  }
+
+  const all = lower + upper + numbers + symbols;
+
+  for (let i = password.length; i < length; i++) {
+    password += all[Math.floor(Math.random() * all.length)];
+  }
+
+  password = password.split('').sort(() => Math.random() - 0.5).join('');
+
+  res.json({ password, length });
+});
+
+// Bulk generation
+app.get('/generate-bulk', (req, res) => {
+  const count = parseInt(req.query.count) || 10;
+  const length = parseInt(req.query.length) || 12;
+
+  if (count > 1000) {
+    return res.status(400).json({ error: 'Max 1000 passwords per request' });
+  }
+
+  const passwords = [];
+
+  for (let i = 0; i < count; i++) {
+    let pass = '';
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+
+    for (let j = 0; j < length; j++) {
+      pass += chars[Math.floor(Math.random() * chars.length)];
     }
+
+    passwords.push(pass);
+  }
+
+  res.json({ count, passwords });
+});
+
+// Strength checker
+app.post('/check-strength', (req, res) => {
+  const { password } = req.body;
+
+  if (!password) {
+    return res.status(400).json({ error: 'Password is required' });
+  }
+
+  let score = 0;
+
+  if (password.length >= 8) score++;
+  if (/[A-Z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  const levels = ['weak', 'medium', 'strong', 'very strong'];
+
+  res.json({
+    password,
+    score,
+    strength: levels[score - 1] || 'very weak'
   });
 });
 

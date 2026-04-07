@@ -3,7 +3,11 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const API_KEY = "my-secret-key";
+const API_KEYS = [
+  "key_client_1",
+  "key_client_2",
+  "my-secret-key" // tu key actual
+];
 
 app.use(express.json());
 
@@ -13,8 +17,8 @@ app.use((req, res, next) => {
 
   const apiKey = req.headers['x-api-key'];
 
-  if (!apiKey || apiKey !== API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized. Missing or invalid API key.' });
+  if (!apiKey || !API_KEYS.includes(apiKey)) {
+    return res.status(401).json({ error: 'Unauthorized. Invalid API key.' });
   }
 
   next();
